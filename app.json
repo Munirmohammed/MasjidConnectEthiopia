@@ -1,7 +1,8 @@
 {
   "expo": {
-    "name": "MasjidConnect",
+    "name": "Masjid Connect Ethiopia",
     "slug": "MasjidConnect",
+    "scheme": "masjidconnect",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
