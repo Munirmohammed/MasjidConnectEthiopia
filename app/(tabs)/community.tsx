@@ -6,9 +6,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 
 export default function CommunityScreen() {
-  const colorScheme = useColorScheme();
-  const theme = Colors[colorScheme ?? 'light'];
+  const colorScheme = useColorScheme() ?? 'light';
+  const theme = Colors[colorScheme as keyof typeof Colors];
   const [activeTab, setActiveTab] = useState<'notices' | 'donations'>('notices');
+  const [likedPosts, setLikedPosts] = useState<string[]>([]);
+  const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null);
 
   const renderPost = ({ item }: { item: Post }) => (
     <View style={[styles.card, { backgroundColor: theme.card }]}>
@@ -25,9 +27,24 @@ export default function CommunityScreen() {
       </View>
       <Text style={[styles.postContent, { color: theme.text }]}>{item.content}</Text>
       <View style={styles.postFooter}>
-        <TouchableOpacity style={styles.footerAction}>
-          <Ionicons name="heart-outline" size={20} color={theme.tabIconDefault} />
-          <Text style={[styles.footerActionText, { color: theme.tabIconDefault }]}>{item.likes}</Text>
+        <TouchableOpacity 
+          style={styles.footerAction} 
+          onPress={() => {
+            if (likedPosts.includes(item.id)) {
+              setLikedPosts(likedPosts.filter(id => id !== item.id));
+            } else {
+              setLikedPosts([...likedPosts, item.id]);
+            }
+          }}
+        >
+          <Ionicons 
+            name={likedPosts.includes(item.id) ? "heart" : "heart-outline"} 
+            size={20} 
+            color={likedPosts.includes(item.id) ? "#ef4444" : theme.tabIconDefault} 
+          />
+          <Text style={[styles.footerActionText, { color: theme.tabIconDefault }]}>
+            {item.likes + (likedPosts.includes(item.id) ? 1 : 0)}
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.footerAction}>
           <Ionicons name="chatbubble-outline" size={20} color={theme.tabIconDefault} />
@@ -61,9 +78,31 @@ export default function CommunityScreen() {
           </View>
         </View>
 
-        <TouchableOpacity style={[styles.donateButton, { backgroundColor: theme.primary }]}>
-          <Text style={styles.donateButtonText}>Donate Now</Text>
+        <TouchableOpacity 
+          style={[styles.donateButton, { backgroundColor: theme.primary }]}
+          onPress={() => setSelectedCampaign(selectedCampaign === item.id ? null : item.id)}
+        >
+          <Text style={styles.donateButtonText}>
+            {selectedCampaign === item.id ? 'Close Details' : 'Donate Now'}
+          </Text>
         </TouchableOpacity>
+
+        {selectedCampaign === item.id && (
+          <View style={[styles.paymentInfo, { backgroundColor: 'rgba(6, 95, 70, 0.05)' }]}>
+            <Text style={[styles.paymentTitle, { color: theme.text }]}>Payment Instructions</Text>
+            <View style={styles.paymentRow}>
+              <Text style={[styles.paymentLabel, { color: theme.tabIconDefault }]}>Telebirr:</Text>
+              <Text style={[styles.paymentValue, { color: theme.text }]}>*127*1*1*0912345678*Amount#</Text>
+            </View>
+            <View style={styles.paymentRow}>
+              <Text style={[styles.paymentLabel, { color: theme.tabIconDefault }]}>CBE Birr:</Text>
+              <Text style={[styles.paymentValue, { color: theme.text }]}>1000123456789</Text>
+            </View>
+            <Text style={[styles.paymentNote, { color: theme.tabIconDefault }]}>
+              Please send a screenshot of the transaction to the mosque office or upload it here.
+            </Text>
+          </View>
+        )}
       </View>
     );
   };
@@ -87,7 +126,7 @@ export default function CommunityScreen() {
 
       <FlatList
         data={activeTab === 'notices' ? POSTS : CAMPAIGNS as any}
-        renderItem={activeTab === 'notices' ? renderPost : renderCampaign}
+        renderItem={(activeTab === 'notices' ? renderPost : renderCampaign) as any}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.list}
       />
@@ -224,5 +263,34 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontFamily: 'InterBold',
+  },
+  paymentInfo: {
+    marginTop: 16,
+    padding: 12,
+    borderRadius: 12,
+  },
+  paymentTitle: {
+    fontSize: 14,
+    fontFamily: 'InterBold',
+    marginBottom: 8,
+  },
+  paymentRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  paymentLabel: {
+    fontSize: 12,
+    fontFamily: 'Inter',
+  },
+  paymentValue: {
+    fontSize: 12,
+    fontFamily: 'InterBold',
+  },
+  paymentNote: {
+    fontSize: 11,
+    fontFamily: 'Inter',
+    fontStyle: 'italic',
+    marginTop: 8,
   },
 });
