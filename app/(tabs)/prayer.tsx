@@ -20,8 +20,8 @@ const ETHIOPIAN_CITIES = [
 ];
 
 export default function PrayerScreen() {
-  const colorScheme = useColorScheme();
-  const theme = Colors[colorScheme ?? 'light'];
+  const colorScheme = useColorScheme() ?? 'light';
+  const theme = Colors[colorScheme as keyof typeof Colors];
   const { location, setLocation } = useAppStore();
   
   const [selectedCity, setSelectedCity] = useState(ETHIOPIAN_CITIES[0]);

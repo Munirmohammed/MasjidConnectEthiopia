@@ -7,8 +7,8 @@ import { Stack, useLocalSearchParams } from 'expo-router';
 
 export default function ImamDetailScreen() {
   const { id } = useLocalSearchParams();
-  const colorScheme = useColorScheme();
-  const theme = Colors[colorScheme ?? 'light'];
+  const colorScheme = useColorScheme() ?? 'light';
+  const theme = Colors[colorScheme as keyof typeof Colors];
   
   const imam = IMAMS.find(i => i.id === id);
 
@@ -49,6 +49,14 @@ export default function ImamDetailScreen() {
               <Text style={[styles.infoValue, { color: theme.text }]}>{imam.phone}</Text>
             </View>
           </TouchableOpacity>
+
+          <View style={styles.infoRow}>
+            <Ionicons name="time" size={24} color={theme.primary} />
+            <View style={styles.infoTextContainer}>
+              <Text style={[styles.infoLabel, { color: theme.tabIconDefault }]}>Current Availability</Text>
+              <Text style={[styles.infoValue, { color: '#10b981' }]}>Available (10 AM - 5 PM)</Text>
+            </View>
+          </View>
         </View>
 
         <Text style={[styles.sectionTitle, { color: theme.text }]}>Biography</Text>

@@ -1,5 +1,5 @@
-import React from 'react';
-import { StyleSheet, View, Text, useColorScheme, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { StyleSheet, View, Text, useColorScheme, ScrollView, TouchableOpacity, Linking } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { EVENTS } from '../../constants/Events';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,8 +8,9 @@ import { format } from 'date-fns';
 
 export default function EventDetailScreen() {
   const { id } = useLocalSearchParams();
-  const colorScheme = useColorScheme();
-  const theme = Colors[colorScheme ?? 'light'];
+  const colorScheme = useColorScheme() ?? 'light';
+  const theme = Colors[colorScheme as keyof typeof Colors];
+  const [isRSVPed, setIsRSVPed] = useState(false);
   
   const event = EVENTS.find(e => e.id === id);
 
@@ -60,8 +61,13 @@ export default function EventDetailScreen() {
         <Text style={[styles.sectionTitle, { color: theme.text }]}>About this Event</Text>
         <Text style={[styles.description, { color: theme.text }]}>{event.description}</Text>
 
-        <TouchableOpacity style={[styles.rsvpButton, { backgroundColor: theme.primary }]}>
-          <Text style={styles.rsvpButtonText}>RSVP / Add to Calendar</Text>
+        <TouchableOpacity 
+          style={[styles.rsvpButton, { backgroundColor: isRSVPed ? '#10b981' : theme.primary }]}
+          onPress={() => setIsRSVPed(!isRSVPed)}
+        >
+          <Text style={styles.rsvpButtonText}>
+            {isRSVPed ? '✓ Going' : 'RSVP / Add to Calendar'}
+          </Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
