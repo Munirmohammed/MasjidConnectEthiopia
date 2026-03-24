@@ -7,11 +7,12 @@ import { Audio } from 'expo-av';
 import { format } from 'date-fns';
 
 export default function KhutbahScreen() {
-  const colorScheme = useColorScheme();
-  const theme = Colors[colorScheme ?? 'light'];
+  const colorScheme = useColorScheme() ?? 'light';
+  const theme = Colors[colorScheme as keyof typeof Colors];
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   async function playSound(khutbah: Khutbah) {
     if (playingId === khutbah.id) {
@@ -55,6 +56,21 @@ export default function KhutbahScreen() {
                 {format(new Date(item.date), 'MMM d, yyyy')} • {item.duration}
               </Text>
             </View>
+            
+            <View style={styles.actionRow}>
+              <TouchableOpacity style={styles.actionItem} onPress={() => setExpandedId(expandedId === item.id ? null : item.id)}>
+                <Ionicons name="document-text-outline" size={16} color={theme.primary} />
+                <Text style={[styles.actionText, { color: theme.primary }]}>Notes</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.actionItem}>
+                <Ionicons name="download-outline" size={16} color={theme.primary} />
+                <Text style={[styles.actionText, { color: theme.primary }]}>Offine</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.actionItem}>
+                <Ionicons name="share-social-outline" size={16} color={theme.primary} />
+                <Text style={[styles.actionText, { color: theme.primary }]}>Share</Text>
+              </TouchableOpacity>
+            </View>
           </View>
           
           <TouchableOpacity 
@@ -69,6 +85,15 @@ export default function KhutbahScreen() {
             )}
           </TouchableOpacity>
         </View>
+
+        {expandedId === item.id && (
+          <View style={[styles.notesContainer, { backgroundColor: 'rgba(6, 95, 70, 0.05)' }]}>
+            <Text style={[styles.notesTitle, { color: theme.text }]}>Sermon Notes</Text>
+            <Text style={[styles.notesText, { color: theme.text }]}>
+              This sermon focuses on the importance of brotherhood and community in Islam, specifically highlighting recent local events in Addis Ababa...
+            </Text>
+          </View>
+        )}
       </View>
     );
   };
@@ -148,5 +173,34 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  actionRow: {
+    flexDirection: 'row',
+    marginTop: 12,
+  },
+  actionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  actionText: {
+    fontSize: 12,
+    fontFamily: 'InterBold',
+    marginLeft: 4,
+  },
+  notesContainer: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 12,
+  },
+  notesTitle: {
+    fontSize: 14,
+    fontFamily: 'InterBold',
+    marginBottom: 4,
+  },
+  notesText: {
+    fontSize: 13,
+    fontFamily: 'Inter',
+    lineHeight: 18,
   },
 });
