@@ -1,0 +1,173 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String     @id @default(cuid())
+  email     String     @unique
+  phone     String?
+  name      String?
+  role      UserRole   @default(USER)
+  mosqueId  String?
+  mosque    Mosque?    @relation(fields: [mosqueId], references: [id])
+  
+  profile   Profile?
+  donations Donation[]
+  posts     Post[]
+  likes     Like[]
+  
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([mosqueId])
+}
+
+model Profile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bio       String?
+  avatar    String?
+  city      String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Mosque {
+  id        String   @id @default(cuid())
+  name      String
+  city      String
+  latitude  Float
+  longitude Float
+  address   String?
+  phone     String?
+  
+  users     User[]
+  imams     Imam[]
+  events    Event[]
+  khutbahs  Khutbah[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([city])
+}
+
+model Imam {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  phone     String?
+  mosqueId  String
+  mosque    Mosque   @relation(fields: [mosqueId], references: [id], onDelete: Cascade)
+  
+  khutbahs  Khutbah[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([mosqueId])
+}
+
+model Khutbah {
+  id        String   @id @default(cuid())
+  title     String
+  audioUrl  String
+  duration  Int       // in seconds
+  imamId    String
+  imam      Imam     @relation(fields: [imamId], references: [id], onDelete: Cascade)
+  mosqueId  String
+  mosque    Mosque   @relation(fields: [mosqueId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([imamId])
+  @@index([mosqueId])
+}
+
+model Event {
+  id        String   @id @default(cuid())
+  title     String
+  description String?
+  date      DateTime
+  time      String
+  location  String?
+  mosqueId  String
+  mosque    Mosque   @relation(fields: [mosqueId], references: [id], onDelete: Cascade)
+  imageUrl  String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([mosqueId])
+  @@index([date])
+}
+
+model Post {
+  id        String   @id @default(cuid())
+  content   String
+  imageUrl  String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  likes     Like[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Like {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+
+  @@unique([postId, userId])
+  @@index([postId])
+  @@index([userId])
+}
+
+model Donation {
+  id        String     @id @default(cuid())
+  amount    Float
+  currency  String     @default("ETB")
+  status    DonationStatus @default(PENDING)
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaignId String?
+  transactionId String?
+  
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+enum UserRole {
+  USER
+  ADMIN
+  IMAM
+}
+
+enum DonationStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  CANCELLED
+}
