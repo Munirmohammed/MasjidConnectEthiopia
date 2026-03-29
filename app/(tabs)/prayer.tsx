@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, View, Text, useColorScheme, ScrollView, TouchableOpacity, Modal, FlatList } from 'react-native';
+import { StyleSheet, View, useColorScheme, ScrollView, TouchableOpacity, Modal, FlatList } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { PrayerTimeService } from '../../services/prayerTimes';
 import { useAppStore } from '../../stores/useAppStore';
 import { Ionicons } from '@expo/vector-icons';
-import { Prayer } from 'adhan';
+import { Prayer as PrayerType } from 'adhan';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
+import { ThemedText } from '../../components/ThemedText';
+import { Card } from '../../components/Card';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const ETHIOPIAN_CITIES = [
   { name: 'Addis Ababa', lat: 9.0333, lon: 38.7500 },
@@ -53,91 +56,119 @@ export default function PrayerScreen() {
   if (!times) return null;
 
   const prayers = [
-    { id: Prayer.Fajr, name: 'Fajr', time: times.fajr },
-    { id: Prayer.Sunrise, name: 'Sunrise', time: times.sunrise },
-    { id: Prayer.Dhuhr, name: 'Dhuhr', time: times.dhuhr },
-    { id: Prayer.Asr, name: 'Asr', time: times.asr },
-    { id: Prayer.Maghrib, name: 'Maghrib', time: times.maghrib },
-    { id: Prayer.Isha, name: 'Isha', time: times.isha },
+    { id: PrayerType.Fajr, name: 'Fajr', icon: 'sunny-outline' },
+    { id: PrayerType.Sunrise, name: 'Sunrise', icon: 'sunny' },
+    { id: PrayerType.Dhuhr, name: 'Dhuhr', icon: 'sunny-outline' },
+    { id: PrayerType.Asr, name: 'Asr', icon: 'partly-sunny-outline' },
+    { id: PrayerType.Maghrib, name: 'Moon-outline', icon: 'moon-outline' },
+    { id: PrayerType.Isha, name: 'Isha', icon: 'moon' },
   ];
+
+  const getPrayerTime = (id: PrayerType) => {
+    switch (id) {
+      case PrayerType.Fajr: return times.fajr;
+      case PrayerType.Sunrise: return times.sunrise;
+      case PrayerType.Dhuhr: return times.dhuhr;
+      case PrayerType.Asr: return times.asr;
+      case PrayerType.Maghrib: return times.maghrib;
+      case PrayerType.Isha: return times.isha;
+      default: return new Date();
+    }
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <View style={[styles.header, { backgroundColor: theme.primary }]}>
+      <LinearGradient
+        colors={[theme.primary, '#064e3b']}
+        style={styles.header}
+      >
         <TouchableOpacity style={styles.citySelector} onPress={() => setCityModalVisible(true)}>
           <Ionicons name="location" size={16} color="#fff" />
-          <Text style={styles.cityText}>{location ? 'Current Location' : selectedCity.name}</Text>
+          <ThemedText style={styles.cityText}>{location ? 'Current Location' : selectedCity.name}</ThemedText>
           <Ionicons name="chevron-down" size={16} color="#fff" />
         </TouchableOpacity>
         
-        <Text style={styles.nextPrayerName}>
-          {PrayerTimeService.getPrayerName(times.next)}
-        </Text>
-        <Text style={styles.nextPrayerTime}>
-          {PrayerTimeService.formatTime(times[times.next.toLowerCase()] || times.fajr)}
-        </Text>
+        <View style={styles.nextPrayerContainer}>
+          <ThemedText style={styles.nextPrayerLabel}>Next Prayer</ThemedText>
+          <ThemedText type="title" style={styles.nextPrayerName}>
+            {PrayerTimeService.getPrayerName(times.next)}
+          </ThemedText>
+          <ThemedText type="subtitle" style={styles.nextPrayerTime}>
+            {PrayerTimeService.formatTime(getPrayerTime(times.next))}
+          </ThemedText>
+        </View>
 
         <View style={styles.toggleContainer}>
           <TouchableOpacity 
             style={[styles.toggleBtn, viewMode === 'daily' && styles.toggleBtnActive]} 
             onPress={() => setViewMode('daily')}
           >
-            <Text style={[styles.toggleText, viewMode === 'daily' && styles.toggleTextActive]}>Daily</Text>
+            <ThemedText style={[styles.toggleText, viewMode === 'daily' && { color: theme.primary, fontWeight: '700' }]}>Daily</ThemedText>
           </TouchableOpacity>
           <TouchableOpacity 
             style={[styles.toggleBtn, viewMode === 'monthly' && styles.toggleBtnActive]} 
             onPress={() => setViewMode('monthly')}
           >
-            <Text style={[styles.toggleText, viewMode === 'monthly' && styles.toggleTextActive]}>Monthly</Text>
+            <ThemedText style={[styles.toggleText, viewMode === 'monthly' && { color: theme.primary, fontWeight: '700' }]}>Monthly</ThemedText>
           </TouchableOpacity>
         </View>
-      </View>
+      </LinearGradient>
 
       {viewMode === 'daily' ? (
-        <ScrollView style={styles.listContainer}>
+        <ScrollView style={styles.listContainer} showsVerticalScrollIndicator={false}>
           {prayers.map((p) => {
             const isCurrent = times.current === p.id;
+            const prayerTime = getPrayerTime(p.id);
             return (
-              <View key={p.id} style={[styles.prayerRow, { backgroundColor: theme.card }, isCurrent && { borderColor: theme.secondary, borderWidth: 2 }]}>
-                <Text style={[styles.prayerName, { color: theme.text }]}>{p.name}</Text>
-                <Text style={[styles.prayerTime, { color: isCurrent ? theme.secondary : theme.text }]}>
-                  {PrayerTimeService.formatTime(p.time)}
-                </Text>
-              </View>
+              <Card key={p.id} style={[styles.prayerCard, isCurrent && { borderColor: theme.secondary, borderWidth: 2 }]}>
+                <View style={styles.prayerInfo}>
+                  <View style={[styles.iconContainer, { backgroundColor: isCurrent ? theme.secondary : theme.border + '40' }]}>
+                    <Ionicons name={p.icon as any} size={24} color={isCurrent ? '#000' : theme.primary} />
+                  </View>
+                  <View>
+                    <ThemedText type="bold" style={styles.prayerNameText}>{p.name}</ThemedText>
+                    <ThemedText type="caption">Sunnah: 2 Rakats</ThemedText>
+                  </View>
+                </View>
+                <ThemedText type="subtitle" style={[styles.prayerTimeText, { color: isCurrent ? theme.primary : theme.text }]}>
+                  {PrayerTimeService.formatTime(prayerTime)}
+                </ThemedText>
+              </Card>
             );
           })}
+          <View style={{ height: 40 }} />
         </ScrollView>
       ) : (
-        <FlatList
-          data={calendarDays}
-          keyExtractor={item => item.day.toISOString()}
-          renderItem={({ item }) => (
-            <View style={[styles.calendarRow, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-              <Text style={[styles.calDate, { color: theme.text }]}>{format(item.day, 'dd MMM')}</Text>
-              <Text style={[styles.calTime, { color: theme.text }]}>{PrayerTimeService.formatTime(item.times.fajr)}</Text>
-              <Text style={[styles.calTime, { color: theme.text }]}>{PrayerTimeService.formatTime(item.times.dhuhr)}</Text>
-              <Text style={[styles.calTime, { color: theme.text }]}>{PrayerTimeService.formatTime(item.times.asr)}</Text>
-              <Text style={[styles.calTime, { color: theme.text }]}>{PrayerTimeService.formatTime(item.times.maghrib)}</Text>
-              <Text style={[styles.calTime, { color: theme.text }]}>{PrayerTimeService.formatTime(item.times.isha)}</Text>
-            </View>
-          )}
-          ListHeaderComponent={
-            <View style={[styles.calendarHeader, { backgroundColor: theme.card }]}>
-              <Text style={[styles.calHeaderLabel, { color: theme.tabIconDefault }]}>Date</Text>
-              <Text style={[styles.calHeaderLabel, { color: theme.tabIconDefault }]}>Fjr</Text>
-              <Text style={[styles.calHeaderLabel, { color: theme.tabIconDefault }]}>Dhr</Text>
-              <Text style={[styles.calHeaderLabel, { color: theme.tabIconDefault }]}>Asr</Text>
-              <Text style={[styles.calHeaderLabel, { color: theme.tabIconDefault }]}>Mgr</Text>
-              <Text style={[styles.calHeaderLabel, { color: theme.tabIconDefault }]}>Ish</Text>
-            </View>
-          }
-        />
+        <View style={{ flex: 1 }}>
+          <View style={[styles.calendarHeader, { backgroundColor: theme.card }]}>
+            <ThemedText style={styles.calHeaderLabel}>Date</ThemedText>
+            <ThemedText style={styles.calHeaderLabel}>Fajr</ThemedText>
+            <ThemedText style={styles.calHeaderLabel}>Dhuhr</ThemedText>
+            <ThemedText style={styles.calHeaderLabel}>Asr</ThemedText>
+            <ThemedText style={styles.calHeaderLabel}>Magh</ThemedText>
+            <ThemedText style={styles.calHeaderLabel}>Isha</ThemedText>
+          </View>
+          <FlatList
+            data={calendarDays}
+            keyExtractor={item => item.day.toISOString()}
+            renderItem={({ item }) => (
+              <View style={[styles.calendarRow, { borderBottomColor: theme.border }]}>
+                <ThemedText style={styles.calDate}>{format(item.day, 'dd MMM')}</ThemedText>
+                <ThemedText style={styles.calTime}>{PrayerTimeService.formatTime(item.times.fajr)}</ThemedText>
+                <ThemedText style={styles.calTime}>{PrayerTimeService.formatTime(item.times.dhuhr)}</ThemedText>
+                <ThemedText style={styles.calTime}>{PrayerTimeService.formatTime(item.times.asr)}</ThemedText>
+                <ThemedText style={styles.calTime}>{PrayerTimeService.formatTime(item.times.maghrib)}</ThemedText>
+                <ThemedText style={styles.calTime}>{PrayerTimeService.formatTime(item.times.isha)}</ThemedText>
+              </View>
+            )}
+          />
+        </View>
       )}
 
       <Modal visible={cityModalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
-            <Text style={[styles.modalTitle, { color: theme.text }]}>Select City</Text>
+          <Card style={styles.modalContent}>
+            <ThemedText type="subtitle" style={styles.modalTitle}>Select City</ThemedText>
             <FlatList
               data={ETHIOPIAN_CITIES}
               keyExtractor={item => item.name}
@@ -150,14 +181,17 @@ export default function PrayerScreen() {
                     setCityModalVisible(false);
                   }}
                 >
-                  <Text style={[styles.cityItemText, { color: theme.text }]}>{item.name}</Text>
+                  <ThemedText style={styles.cityItemText}>{item.name}</ThemedText>
+                  {(location === null && selectedCity.name === item.name) && (
+                    <Ionicons name="checkmark-circle" size={20} color={theme.primary} />
+                  )}
                 </TouchableOpacity>
               )}
             />
             <TouchableOpacity style={styles.closeBtn} onPress={() => setCityModalVisible(false)}>
-              <Text style={{ color: theme.primary, fontWeight: 'bold' }}>Close</Text>
+              <ThemedText style={{ color: theme.primary, fontWeight: 'bold' }}>Close</ThemedText>
             </TouchableOpacity>
-          </View>
+          </Card>
         </View>
       </Modal>
     </View>
@@ -166,29 +200,107 @@ export default function PrayerScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { padding: 30, alignItems: 'center', borderBottomLeftRadius: 30, borderBottomRightRadius: 30 },
-  citySelector: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, marginBottom: 16 },
-  cityText: { color: '#fff', marginHorizontal: 8, fontSize: 14 },
-  nextPrayerName: { color: '#fff', fontSize: 28, fontWeight: 'bold' },
-  nextPrayerTime: { color: '#fbbf24', fontSize: 20, fontWeight: 'bold', marginVertical: 4 },
-  toggleContainer: { flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.1)', borderRadius: 20, marginTop: 20, padding: 4 },
-  toggleBtn: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 16 },
+  header: { 
+    padding: 30, 
+    paddingTop: 60,
+    alignItems: 'center', 
+    borderBottomLeftRadius: 40, 
+    borderBottomRightRadius: 40,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+  },
+  citySelector: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    backgroundColor: 'rgba(255,255,255,0.15)', 
+    paddingHorizontal: 16, 
+    paddingVertical: 8, 
+    borderRadius: 24, 
+    marginBottom: 24 
+  },
+  cityText: { color: '#fff', marginHorizontal: 8, fontSize: 14, fontWeight: '600' },
+  nextPrayerContainer: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  nextPrayerLabel: {
+    color: 'rgba(255,255,255,0.7)',
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  nextPrayerName: { color: '#fff', fontSize: 42, marginBottom: 4 },
+  nextPrayerTime: { color: '#fbbf24', fontSize: 24 },
+  toggleContainer: { 
+    flexDirection: 'row', 
+    backgroundColor: 'rgba(0,0,0,0.2)', 
+    borderRadius: 24, 
+    padding: 4 
+  },
+  toggleBtn: { paddingHorizontal: 24, paddingVertical: 8, borderRadius: 20 },
   toggleBtnActive: { backgroundColor: '#fff' },
-  toggleText: { color: '#fff', fontSize: 12 },
-  toggleTextActive: { color: '#065f46', fontWeight: 'bold' },
+  toggleText: { color: '#fff', fontSize: 13, fontWeight: '600' },
   listContainer: { padding: 20 },
-  prayerRow: { flexDirection: 'row', justifyContent: 'space-between', padding: 16, borderRadius: 16, marginBottom: 12 },
-  prayerName: { fontSize: 18 },
-  prayerTime: { fontSize: 18, fontWeight: 'bold' },
-  calendarHeader: { flexDirection: 'row', padding: 12, borderBottomWidth: 1, borderBottomColor: '#eee' },
-  calHeaderLabel: { flex: 1, fontSize: 10, textAlign: 'center' },
-  calendarRow: { flexDirection: 'row', padding: 12, borderBottomWidth: 1 },
-  calDate: { flex: 1, fontSize: 12, fontWeight: 'bold' },
-  calTime: { flex: 1, fontSize: 10, textAlign: 'center' },
+  prayerCard: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center',
+    padding: 16, 
+    marginBottom: 12,
+    elevation: 1,
+  },
+  prayerInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  prayerNameText: {
+    fontSize: 18,
+    marginBottom: 2,
+  },
+  prayerTimeText: { 
+    fontSize: 18, 
+    fontWeight: '700' 
+  },
+  calendarHeader: { 
+    flexDirection: 'row', 
+    padding: 16, 
+    borderBottomWidth: 1, 
+    borderBottomColor: '#eee' 
+  },
+  calHeaderLabel: { flex: 1, fontSize: 11, fontWeight: '700', textAlign: 'center', color: '#9ca3af' },
+  calendarRow: { flexDirection: 'row', padding: 16, borderBottomWidth: 1, alignItems: 'center' },
+  calDate: { flex: 1, fontSize: 13, fontWeight: '700' },
+  calTime: { flex: 1, fontSize: 11, textAlign: 'center' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalContent: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '60%' },
-  modalTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 16 },
-  cityItem: { paddingVertical: 16, borderBottomWidth: 0.5, borderBottomColor: '#eee' },
-  cityItemText: { fontSize: 16 },
-  closeBtn: { marginTop: 20, alignItems: 'center', padding: 10 },
+  modalContent: { 
+    borderBottomLeftRadius: 0, 
+    borderBottomRightRadius: 0, 
+    padding: 24, 
+    maxHeight: '70%',
+    marginBottom: 0,
+  },
+  modalTitle: { fontSize: 20, marginBottom: 20 },
+  cityItem: { 
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 16, 
+    borderBottomWidth: 1, 
+    borderBottomColor: '#f3f4f6' 
+  },
+  cityItemText: { fontSize: 16, fontWeight: '500' },
+  closeBtn: { marginTop: 24, alignItems: 'center', padding: 12 },
 });

@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, View, Text, useColorScheme, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, useColorScheme, ActivityIndicator } from 'react-native';
 import MapView, { Marker, Callout, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Colors } from '../../constants/Colors';
 import { MOSQUES } from '../../constants/Mosques';
 import { LocationService } from '../../services/location';
 import { useAppStore } from '../../stores/useAppStore';
+import { ThemedText } from '../../components/ThemedText';
+import { Card } from '../../components/Card';
+import { router } from 'expo-router';
 
 export default function MapScreen() {
   const colorScheme = useColorScheme();
@@ -51,6 +54,7 @@ export default function MapScreen() {
         initialRegion={initialRegion}
         showsUserLocation={true}
         showsMyLocationButton={true}
+        customMapStyle={colorScheme === 'dark' ? darkMapStyle : []}
       >
         {MOSQUES.map((mosque) => (
           <Marker
@@ -61,12 +65,17 @@ export default function MapScreen() {
             }}
             pinColor={theme.primary}
           >
-            <Callout>
-              <View style={styles.callout}>
-                <Text style={styles.calloutTitle}>{mosque.name}</Text>
-                <Text style={styles.calloutText}>{mosque.city}</Text>
-                <Text style={styles.calloutLink}>View Details</Text>
-              </View>
+            <Callout 
+              onPress={() => router.push(`/mosque/${mosque.id}`)}
+              tooltip
+            >
+              <Card style={styles.calloutCard}>
+                <ThemedText type="bold" style={styles.calloutTitle}>{mosque.name}</ThemedText>
+                <ThemedText type="caption" style={styles.calloutText}>{mosque.city}</ThemedText>
+                <View style={styles.linkContainer}>
+                  <ThemedText style={[styles.calloutLink, { color: theme.primary }]}>View Details</ThemedText>
+                </View>
+              </Card>
             </Callout>
           </Marker>
         ))}
@@ -74,6 +83,41 @@ export default function MapScreen() {
     </View>
   );
 }
+
+const darkMapStyle = [
+  {
+    "elementType": "geometry",
+    "stylers": [{ "color": "#242f3e" }]
+  },
+  {
+    "elementType": "labels.text.fill",
+    "stylers": [{ "color": "#746855" }]
+  },
+  {
+    "elementType": "labels.text.stroke",
+    "stylers": [{ "color": "#242f3e" }]
+  },
+  {
+    "featureType": "administrative.locality",
+    "elementType": "labels.text.fill",
+    "stylers": [{ "color": "#d59563" }]
+  },
+  {
+    "featureType": "poi",
+    "elementType": "labels.text.fill",
+    "stylers": [{ "color": "#d59563" }]
+  },
+  {
+    "featureType": "poi.park",
+    "elementType": "geometry",
+    "stylers": [{ "color": "#263c3f" }]
+  },
+  {
+    "featureType": "water",
+    "elementType": "geometry",
+    "stylers": [{ "color": "#17263c" }]
+  }
+];
 
 const styles = StyleSheet.create({
   container: {
@@ -83,23 +127,28 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  callout: {
-    padding: 10,
-    minWidth: 150,
+  calloutCard: {
+    minWidth: 180,
+    padding: 12,
+    marginBottom: 0,
+    borderRadius: 12,
   },
   calloutTitle: {
     fontSize: 14,
-    fontWeight: 'bold',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   calloutText: {
     fontSize: 12,
-    color: '#666',
+    marginBottom: 8,
+  },
+  linkContainer: {
+    borderTopWidth: 1,
+    borderTopColor: '#f3f4f6',
+    paddingTop: 8,
   },
   calloutLink: {
     fontSize: 12,
-    color: '#065f46',
-    marginTop: 4,
     fontWeight: '600',
+    textAlign: 'center',
   },
 });

@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, useColorScheme, FlatList, TextInput, TouchableOpacity, Image } from 'react-native';
+import { StyleSheet, View, useColorScheme, FlatList, TextInput, TouchableOpacity } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { IMAMS, Imam } from '../../constants/Imams';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
+import { ThemedText } from '../../components/ThemedText';
+import { Card } from '../../components/Card';
 
 export default function ImamDirectoryScreen() {
   const colorScheme = useColorScheme();
@@ -19,30 +21,37 @@ export default function ImamDirectoryScreen() {
 
   const renderImam = ({ item }: { item: Imam }) => (
     <TouchableOpacity 
-      style={[styles.card, { backgroundColor: theme.card }]}
+      activeOpacity={0.7}
       onPress={() => router.push(`/imam/${item.id}`)}
     >
-      <View style={styles.imamInfo}>
-        <View style={[styles.avatarPlaceholder, { backgroundColor: theme.primary }]}>
-          <Text style={styles.avatarText}>{item.name.charAt(0)}</Text>
-        </View>
-        <View style={styles.textDetails}>
-          <Text style={[styles.name, { color: theme.text }]}>{item.name}</Text>
-          <Text style={[styles.mosque, { color: theme.tabIconDefault }]}>{item.mosqueName}</Text>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{item.specialty}</Text>
+      <Card style={styles.card}>
+        <View style={styles.imamInfo}>
+          <View style={[styles.avatarPlaceholder, { backgroundColor: theme.primary + '15' }]}>
+            <ThemedText style={[styles.avatarText, { color: theme.primary }]}>{item.name.charAt(0)}</ThemedText>
+          </View>
+          <View style={styles.textDetails}>
+            <ThemedText type="bold" style={styles.name}>{item.name}</ThemedText>
+            <ThemedText type="caption" style={styles.mosque}>{item.mosqueName}</ThemedText>
+            <View style={[styles.badge, { backgroundColor: theme.primary + '10' }]}>
+              <ThemedText type="caption" style={[styles.badgeText, { color: theme.primary }]}>{item.specialty}</ThemedText>
+            </View>
           </View>
         </View>
-      </View>
-      <Ionicons name="chevron-forward" size={20} color={theme.tabIconDefault} />
+        <Ionicons name="chevron-forward" size={20} color={theme.tabIconDefault} />
+      </Card>
     </TouchableOpacity>
   );
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <Stack.Screen options={{ title: 'Imam Directory', headerBackTitle: 'Back' }} />
+      <Stack.Screen options={{ 
+        title: 'Scholarly Directory', 
+        headerLargeTitle: true,
+        headerTintColor: theme.primary,
+        headerStyle: { backgroundColor: theme.background },
+      }} />
       
-      <View style={[styles.searchContainer, { backgroundColor: theme.card }]}>
+      <View style={[styles.searchContainer, { backgroundColor: theme.card, borderColor: theme.border }]}>
         <Ionicons name="search" size={20} color={theme.tabIconDefault} style={styles.searchIcon} />
         <TextInput
           style={[styles.searchInput, { color: theme.text }]}
@@ -51,6 +60,11 @@ export default function ImamDirectoryScreen() {
           value={search}
           onChangeText={setSearch}
         />
+        {search.length > 0 && (
+          <TouchableOpacity onPress={() => setSearch('')}>
+            <Ionicons name="close-circle" size={18} color={theme.tabIconDefault} />
+          </TouchableOpacity>
+        )}
       </View>
 
       <FlatList
@@ -58,6 +72,12 @@ export default function ImamDirectoryScreen() {
         renderItem={renderImam}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.list}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Ionicons name="search-outline" size={48} color={theme.border} />
+            <ThemedText style={{ color: theme.tabIconDefault, marginTop: 16 }}>No imams found matching your search.</ThemedText>
+          </View>
+        }
       />
     </View>
   );
@@ -71,33 +91,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     margin: 16,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    height: 50,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    height: 56,
+    borderWidth: 1,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
   },
   searchIcon: {
-    marginRight: 8,
+    marginRight: 10,
   },
   searchInput: {
     flex: 1,
     height: '100%',
-    fontFamily: 'Inter',
+    fontSize: 16,
   },
   list: {
     padding: 16,
-    paddingTop: 0,
+    paddingTop: 8,
   },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    borderRadius: 16,
+    padding: 12,
     marginBottom: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    borderWidth: 0,
   },
   imamInfo: {
     flex: 1,
@@ -105,41 +126,41 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   avatarPlaceholder: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
-    color: '#fff',
-    fontSize: 24,
-    fontFamily: 'InterBold',
+    fontSize: 22,
+    fontWeight: '700',
   },
   textDetails: {
     marginLeft: 16,
     flex: 1,
   },
   name: {
-    fontSize: 18,
-    fontFamily: 'InterBold',
+    fontSize: 17,
   },
   mosque: {
-    fontSize: 14,
-    fontFamily: 'Inter',
     marginVertical: 2,
   },
   badge: {
-    backgroundColor: 'rgba(6, 95, 70, 0.1)',
     alignSelf: 'flex-start',
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 6,
+    borderRadius: 8,
     marginTop: 4,
   },
   badgeText: {
-    color: '#065f46',
-    fontSize: 12,
-    fontFamily: 'InterBold',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  emptyContainer: {
+    marginTop: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
