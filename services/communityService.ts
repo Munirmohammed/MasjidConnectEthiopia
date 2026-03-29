@@ -9,6 +9,14 @@ export interface Post {
   createdAt: string;
 }
 
+export interface Comment {
+  id: string;
+  postId: string;
+  content: string;
+  user: { id: string; name: string };
+  createdAt: string;
+}
+
 export interface PaginatedPosts {
   items: Post[];
   total: number;
@@ -23,4 +31,6 @@ export const communityService = {
   like: (postId: string) =>
     api.post<{ liked: boolean; likeCount: number }>(`/community/${postId}/like`, {}),
   delete: (postId: string) => api.delete<{ message: string }>(`/community/${postId}`),
+  getComments: (postId: string) => api.get<Comment[]>(`/community/${postId}/comments`),
+  addComment: (postId: string, content: string) => api.post<Comment>(`/community/${postId}/comments`, { content }),
 };

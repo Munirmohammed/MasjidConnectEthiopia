@@ -3,12 +3,12 @@
     "name": "Masjid Connect Ethiopia",
     "slug": "MasjidConnect",
     "scheme": "masjidconnect",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/Gemini_Generated_Image_fubv9hfubv9hfubv.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/Gemini_Generated_Image_fubv9hfubv9hfubv.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -18,14 +18,14 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "foregroundImage": "./assets/Gemini_Generated_Image_fubv9hfubv9hfubv.png",
+        "backgroundImage": "./assets/Gemini_Generated_Image_fubv9hfubv9hfubv.png",
+        "monochromeImage": "./assets/Gemini_Generated_Image_fubv9hfubv9hfubv.png"
       },
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/Gemini_Generated_Image_fubv9hfubv9hfubv.png"
     }
   }
 }

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, View, useColorScheme, ScrollView, TouchableOpacity, Modal, FlatList } from 'react-native';
+import { StyleSheet, View, useColorScheme, ScrollView, TouchableOpacity, Modal, FlatList, Switch } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../../constants/Colors';
 import { PrayerTimeService } from '../../services/prayerTimes';
 import { useAppStore } from '../../stores/useAppStore';
@@ -36,6 +37,21 @@ export default function PrayerScreen() {
   
   const [times, setTimes] = useState<any>(null);
   const [calendarDays, setCalendarDays] = useState<any[]>([]);
+
+  const [settingsModalVisible, setSettingsModalVisible] = useState(false);
+  const [selectedPrayer, setSelectedPrayer] = useState<PrayerType | null>(null);
+  const [athanSettings, setAthanSettings] = useState<Record<string, { muted: boolean; sound: string }>>({});
+
+  useEffect(() => {
+    AsyncStorage.getItem('athanSettings').then(val => {
+      if (val) setAthanSettings(JSON.parse(val));
+    });
+  }, []);
+
+  const saveAthanSettings = (newSettings: any) => {
+    setAthanSettings(newSettings);
+    AsyncStorage.setItem('athanSettings', JSON.stringify(newSettings));
+  };
 
   useEffect(() => {
     const pt = PrayerTimeService.getPrayerTimes(lat, lon);
@@ -120,20 +136,33 @@ export default function PrayerScreen() {
             const isCurrent = times.current === p.id;
             const prayerTime = getPrayerTime(p.id);
             return (
-              <Card key={p.id} style={[styles.prayerCard, isCurrent && { borderColor: theme.secondary, borderWidth: 2 }]}>
-                <View style={styles.prayerInfo}>
-                  <View style={[styles.iconContainer, { backgroundColor: isCurrent ? theme.secondary : theme.border + '40' }]}>
-                    <Ionicons name={p.icon as any} size={24} color={isCurrent ? '#000' : theme.primary} />
+              <TouchableOpacity
+                key={p.id}
+                onPress={() => {
+                  setSelectedPrayer(p.id);
+                  setSettingsModalVisible(true);
+                }}
+              >
+                <Card style={[styles.prayerCard, isCurrent && { borderColor: theme.secondary, borderWidth: 2 }]}>
+                  <View style={styles.prayerInfo}>
+                    <View style={[styles.iconContainer, { backgroundColor: isCurrent ? theme.secondary : theme.border + '40' }]}>
+                      <Ionicons name={p.icon as any} size={24} color={isCurrent ? '#000' : theme.primary} />
+                    </View>
+                    <View>
+                      <ThemedText type="bold" style={styles.prayerNameText}>{p.name}</ThemedText>
+                      <ThemedText type="caption">Sunnah: 2 Rakats</ThemedText>
+                    </View>
                   </View>
-                  <View>
-                    <ThemedText type="bold" style={styles.prayerNameText}>{p.name}</ThemedText>
-                    <ThemedText type="caption">Sunnah: 2 Rakats</ThemedText>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <ThemedText type="subtitle" style={[styles.prayerTimeText, { color: isCurrent ? theme.primary : theme.text }]}>
+                      {PrayerTimeService.formatTime(prayerTime)}
+                    </ThemedText>
+                    {athanSettings[p.name]?.muted && (
+                      <Ionicons name="volume-mute" size={16} color={theme.tabIconDefault} style={{ marginTop: 4 }} />
+                    )}
                   </View>
-                </View>
-                <ThemedText type="subtitle" style={[styles.prayerTimeText, { color: isCurrent ? theme.primary : theme.text }]}>
-                  {PrayerTimeService.formatTime(prayerTime)}
-                </ThemedText>
-              </Card>
+                </Card>
+              </TouchableOpacity>
             );
           })}
           <View style={{ height: 40 }} />
@@ -194,6 +223,51 @@ export default function PrayerScreen() {
           </Card>
         </View>
       </Modal>
+      <Modal visible={settingsModalVisible} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <Card style={styles.modalContent}>
+            {selectedPrayer !== null && (() => {
+               const pName = prayers.find(p => p.id === selectedPrayer)?.name || '';
+               const currentSettings = athanSettings[pName] || { muted: false, sound: 'default' };
+               return (
+                 <>
+                  <ThemedText type="subtitle" style={styles.modalTitle}>{pName} Athan Settings</ThemedText>
+                  
+                  <View style={styles.settingRow}>
+                    <ThemedText style={{fontSize: 16}}>Mute Athan</ThemedText>
+                    <Switch
+                      value={currentSettings.muted}
+                      onValueChange={(val) => {
+                        saveAthanSettings({ ...athanSettings, [pName]: { ...currentSettings, muted: val }});
+                      }}
+                      trackColor={{ false: '#767577', true: theme.primary }}
+                    />
+                  </View>
+
+                  <View style={styles.settingRow}>
+                    <ThemedText style={{fontSize: 16}}>Athan Sound</ThemedText>
+                    <TouchableOpacity 
+                      style={styles.soundSelector}
+                      onPress={() => {
+                         const nextSound = currentSettings.sound === 'default' ? 'makkah' : 'default';
+                         saveAthanSettings({ ...athanSettings, [pName]: { ...currentSettings, sound: nextSound }});
+                      }}
+                    >
+                      <ThemedText style={{ color: theme.primary, fontWeight: 'bold' }}>
+                        {currentSettings.sound === 'makkah' ? 'Makkah' : 'Default'}
+                      </ThemedText>
+                    </TouchableOpacity>
+                  </View>
+                 </>
+               );
+            })()}
+            <TouchableOpacity style={styles.closeBtn} onPress={() => setSettingsModalVisible(false)}>
+              <ThemedText style={{ color: theme.primary, fontWeight: 'bold' }}>Done</ThemedText>
+            </TouchableOpacity>
+          </Card>
+        </View>
+      </Modal>
+
     </View>
   );
 }
@@ -303,4 +377,17 @@ const styles = StyleSheet.create({
   },
   cityItemText: { fontSize: 16, fontWeight: '500' },
   closeBtn: { marginTop: 24, alignItems: 'center', padding: 12 },
+  settingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6'
+  },
+  soundSelector: {
+    padding: 8,
+    backgroundColor: 'rgba(6, 95, 70, 0.1)',
+    borderRadius: 8,
+  },
 });

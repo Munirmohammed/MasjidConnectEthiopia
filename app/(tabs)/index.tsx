@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, View, useColorScheme, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, useColorScheme, ActivityIndicator, Alert } from 'react-native';
 import MapView, { Marker, Callout, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Colors } from '../../constants/Colors';
-import { MOSQUES } from '../../constants/Mosques';
+import { mosqueService, Mosque } from '../../services/mosqueService';
 import { LocationService } from '../../services/location';
 import { useAppStore } from '../../stores/useAppStore';
 import { ThemedText } from '../../components/ThemedText';
@@ -14,26 +14,38 @@ export default function MapScreen() {
   const theme = Colors[colorScheme ?? 'light'];
   const { location, setLocation } = useAppStore();
   const [loading, setLoading] = useState(true);
+  const [mosques, setMosques] = useState<Mosque[]>([]);
 
   useEffect(() => {
     (async () => {
-      const hasPermission = await LocationService.requestPermissions();
-      if (hasPermission) {
-        const coords = await LocationService.getCurrentLocation();
-        if (coords) {
-          setLocation({
-            latitude: coords.latitude,
-            longitude: coords.longitude,
-          });
+      try {
+        setLoading(true);
+        const hasPermission = await LocationService.requestPermissions();
+        if (hasPermission) {
+          const coords = await LocationService.getCurrentLocation();
+          if (coords) {
+            setLocation({
+              latitude: coords.latitude,
+              longitude: coords.longitude,
+            });
+          }
         }
+        
+        // Fetch real data from backend
+        const liveMosques = await mosqueService.list();
+        setMosques(liveMosques);
+      } catch (error) {
+        console.warn('Could not fetch nearby mosques:', error);
+        // Do not block map rendering on fetch failure
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     })();
   }, []);
 
   if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <View style={[styles.container, { backgroundColor: theme.background, justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
@@ -42,8 +54,8 @@ export default function MapScreen() {
   const initialRegion = {
     latitude: location?.latitude || 9.145, // Ethiopia Center (approx)
     longitude: location?.longitude || 40.4897,
-    latitudeDelta: 10,
-    longitudeDelta: 10,
+    latitudeDelta: location ? 0.05 : 10, // Zoom in if location known
+    longitudeDelta: location ? 0.05 : 10,
   };
 
   return (
@@ -56,7 +68,7 @@ export default function MapScreen() {
         showsMyLocationButton={true}
         customMapStyle={colorScheme === 'dark' ? darkMapStyle : []}
       >
-        {MOSQUES.map((mosque) => (
+        {mosques.map((mosque) => (
           <Marker
             key={mosque.id}
             coordinate={{

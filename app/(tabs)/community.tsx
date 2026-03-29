@@ -1,296 +1,216 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, Text, useColorScheme, FlatList, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, View, Text, useColorScheme, FlatList, TouchableOpacity, TextInput, ActivityIndicator, Modal, RefreshControl, Alert } from 'react-native';
 import { Colors } from '../../constants/Colors';
-import { POSTS, CAMPAIGNS, Post, Campaign } from '../../constants/Community';
+import { communityService, Post, Comment } from '../../services/communityService';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 
 export default function CommunityScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const theme = Colors[colorScheme as keyof typeof Colors];
-  const [activeTab, setActiveTab] = useState<'notices' | 'donations'>('notices');
-  const [likedPosts, setLikedPosts] = useState<string[]>([]);
-  const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null);
+  
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Comments state
+  const [commentsModalVisible, setCommentsModalVisible] = useState(false);
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [loadingComments, setLoadingComments] = useState(false);
+
+  const fetchPosts = async () => {
+    try {
+      const data = await communityService.list();
+      setPosts(data.items || []);
+    } catch (error) {
+      console.warn("Failed to load posts", error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPosts();
+  }, []);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchPosts();
+  };
+
+  const handleLike = async (post: Post) => {
+    // Optimistic UI update
+    const previousLikes = post.likeCount;
+    setPosts(prev => prev.map(p => {
+      if (p.id === post.id) {
+         return { ...p, likeCount: p.likeCount + 1 };
+      }
+      return p;
+    }));
+    
+    try {
+      await communityService.like(post.id);
+    } catch (error) {
+      // Revert if failed
+      setPosts(prev => prev.map(p => {
+         if (p.id === post.id) return { ...p, likeCount: previousLikes };
+         return p;
+      }));
+    }
+  };
+
+  const openComments = async (postId: string) => {
+    setSelectedPostId(postId);
+    setCommentsModalVisible(true);
+    setLoadingComments(true);
+    try {
+      const data = await communityService.getComments(postId);
+      setComments(data || []);
+    } catch (e) {
+      console.warn("Could not fetch comments");
+      setComments([]);
+    } finally {
+      setLoadingComments(false);
+    }
+  };
+
+  const handleAddComment = async () => {
+    if (!newComment.trim() || !selectedPostId) return;
+    try {
+       const commentRes = await communityService.addComment(selectedPostId, newComment);
+       setComments(prev => [...prev, commentRes]);
+       setNewComment('');
+    } catch (e) {
+       Alert.alert("Error", "Could not post comment");
+    }
+  };
 
   const renderPost = ({ item }: { item: Post }) => (
     <View style={[styles.card, { backgroundColor: theme.card }]}>
       <View style={styles.postHeader}>
         <View style={[styles.avatar, { backgroundColor: theme.primary }]}>
-          <Text style={styles.avatarText}>{item.author.charAt(0)}</Text>
+          <Text style={styles.avatarText}>{item.user?.name?.charAt(0) || 'U'}</Text>
         </View>
         <View style={styles.authorInfo}>
-          <Text style={[styles.authorName, { color: theme.text }]}>{item.author}</Text>
+          <Text style={[styles.authorName, { color: theme.text }]}>{item.user?.name || 'Anonymous'}</Text>
           <Text style={[styles.postDate, { color: theme.tabIconDefault }]}>
-            {format(new Date(item.date), 'MMM d, h:mm a')} • {item.category}
+            {format(new Date(item.createdAt || Date.now()), 'MMM d, h:mm a')}
           </Text>
         </View>
       </View>
       <Text style={[styles.postContent, { color: theme.text }]}>{item.content}</Text>
       <View style={styles.postFooter}>
-        <TouchableOpacity 
-          style={styles.footerAction} 
-          onPress={() => {
-            if (likedPosts.includes(item.id)) {
-              setLikedPosts(likedPosts.filter(id => id !== item.id));
-            } else {
-              setLikedPosts([...likedPosts, item.id]);
-            }
-          }}
-        >
-          <Ionicons 
-            name={likedPosts.includes(item.id) ? "heart" : "heart-outline"} 
-            size={20} 
-            color={likedPosts.includes(item.id) ? "#ef4444" : theme.tabIconDefault} 
-          />
+        <TouchableOpacity style={styles.footerAction} onPress={() => handleLike(item)}>
+          <Ionicons name="heart" size={20} color={theme.tabIconDefault} />
           <Text style={[styles.footerActionText, { color: theme.tabIconDefault }]}>
-            {item.likes + (likedPosts.includes(item.id) ? 1 : 0)}
+            {item.likeCount}
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.footerAction}>
+        <TouchableOpacity style={styles.footerAction} onPress={() => openComments(item.id)}>
           <Ionicons name="chatbubble-outline" size={20} color={theme.tabIconDefault} />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.footerAction}>
-          <Ionicons name="share-social-outline" size={20} color={theme.tabIconDefault} />
+          <Text style={[styles.footerActionText, { color: theme.tabIconDefault }]}>Comment</Text>
         </TouchableOpacity>
       </View>
     </View>
   );
 
-  const renderCampaign = ({ item }: { item: Campaign }) => {
-    const progress = Math.min(item.raised / item.goal, 1);
+  if (loading) {
     return (
-      <View style={[styles.card, { backgroundColor: theme.card }]}>
-        <Text style={[styles.campaignTitle, { color: theme.text }]}>{item.title}</Text>
-        <Text style={[styles.mosqueName, { color: theme.primary }]}>{item.mosqueName}</Text>
-        <Text style={[styles.description, { color: theme.tabIconDefault }]}>{item.description}</Text>
-        
-        <View style={styles.progressContainer}>
-          <View style={[styles.progressBar, { backgroundColor: theme.border }]}>
-            <View style={[styles.progressFill, { width: `${progress * 100}%`, backgroundColor: theme.primary }]} />
-          </View>
-          <View style={styles.progressStats}>
-            <Text style={[styles.statsText, { color: theme.text }]}>
-              {item.raised.toLocaleString()} ETB raised
-            </Text>
-            <Text style={[styles.statsText, { color: theme.tabIconDefault }]}>
-              Goal: {item.goal.toLocaleString()} ETB
-            </Text>
-          </View>
-        </View>
-
-        <TouchableOpacity 
-          style={[styles.donateButton, { backgroundColor: theme.primary }]}
-          onPress={() => setSelectedCampaign(selectedCampaign === item.id ? null : item.id)}
-        >
-          <Text style={styles.donateButtonText}>
-            {selectedCampaign === item.id ? 'Close Details' : 'Donate Now'}
-          </Text>
-        </TouchableOpacity>
-
-        {selectedCampaign === item.id && (
-          <View style={[styles.paymentInfo, { backgroundColor: 'rgba(6, 95, 70, 0.05)' }]}>
-            <Text style={[styles.paymentTitle, { color: theme.text }]}>Payment Instructions</Text>
-            <View style={styles.paymentRow}>
-              <Text style={[styles.paymentLabel, { color: theme.tabIconDefault }]}>Telebirr:</Text>
-              <Text style={[styles.paymentValue, { color: theme.text }]}>*127*1*1*0912345678*Amount#</Text>
-            </View>
-            <View style={styles.paymentRow}>
-              <Text style={[styles.paymentLabel, { color: theme.tabIconDefault }]}>CBE Birr:</Text>
-              <Text style={[styles.paymentValue, { color: theme.text }]}>1000123456789</Text>
-            </View>
-            <Text style={[styles.paymentNote, { color: theme.tabIconDefault }]}>
-              Please send a screenshot of the transaction to the mosque office or upload it here.
-            </Text>
-          </View>
-        )}
+      <View style={[styles.container, { backgroundColor: theme.background, justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
-  };
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <View style={[styles.tabContainer, { backgroundColor: theme.card }]}>
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'notices' && { borderBottomColor: theme.primary, borderBottomWidth: 3 }]}
-          onPress={() => setActiveTab('notices')}
-        >
-          <Text style={[styles.tabText, { color: activeTab === 'notices' ? theme.primary : theme.tabIconDefault }]}>Noticeboard</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'donations' && { borderBottomColor: theme.primary, borderBottomWidth: 3 }]}
-          onPress={() => setActiveTab('donations')}
-        >
-          <Text style={[styles.tabText, { color: activeTab === 'donations' ? theme.primary : theme.tabIconDefault }]}>Donations</Text>
-        </TouchableOpacity>
+      <View style={[styles.header, { backgroundColor: theme.card }]}>
+         <Text style={[styles.headerTitle, { color: theme.text }]}>Community Noticeboard</Text>
       </View>
-
+      
       <FlatList
-        data={activeTab === 'notices' ? POSTS : CAMPAIGNS as any}
-        renderItem={(activeTab === 'notices' ? renderPost : renderCampaign) as any}
-        keyExtractor={item => item.id}
+        data={posts}
+        renderItem={renderPost}
+        keyExtractor={item => item.id.toString()}
         contentContainerStyle={styles.list}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.primary]} />}
+        ListEmptyComponent={
+          <View style={{ alignItems: 'center', marginTop: 40 }}>
+            <Text style={{ color: theme.tabIconDefault }}>No posts found. Be the first to post!</Text>
+          </View>
+        }
       />
+
+      <Modal visible={commentsModalVisible} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.background }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.headerTitle, { color: theme.text }]}>Comments</Text>
+              <TouchableOpacity onPress={() => setCommentsModalVisible(false)}>
+                <Ionicons name="close" size={24} color={theme.text} />
+              </TouchableOpacity>
+            </View>
+            
+            {loadingComments ? (
+              <ActivityIndicator size="small" color={theme.primary} style={{ marginTop: 20 }} />
+            ) : (
+              <FlatList
+                data={comments}
+                keyExtractor={item => item.id.toString()}
+                renderItem={({item}) => (
+                  <View style={[styles.commentCard, { borderBottomColor: theme.border }]}>
+                     <Text style={[styles.authorName, { color: theme.text, fontSize: 13 }]}>{item.user?.name || 'Anonymous'}</Text>
+                     <Text style={{ color: theme.text, marginTop: 4 }}>{item.content}</Text>
+                  </View>
+                )}
+                ListEmptyComponent={<Text style={{ color: theme.tabIconDefault, textAlign: 'center', marginTop: 20 }}>No comments yet.</Text>}
+              />
+            )}
+
+            <View style={[styles.commentInputRow, { borderTopColor: theme.border }]}>
+               <TextInput
+                 style={[styles.input, { color: theme.text, borderColor: theme.border }]}
+                 placeholder="Write a comment..."
+                 placeholderTextColor={theme.tabIconDefault}
+                 value={newComment}
+                 onChangeText={setNewComment}
+               />
+               <TouchableOpacity style={[styles.sendBtn, { backgroundColor: theme.primary }]} onPress={handleAddComment}>
+                 <Ionicons name="send" size={16} color="#fff" />
+               </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    height: 50,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  tab: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tabText: {
-    fontSize: 14,
-    fontFamily: 'InterBold',
-  },
-  list: {
-    padding: 16,
-  },
-  card: {
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  postHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    color: '#fff',
-    fontSize: 18,
-    fontFamily: 'InterBold',
-  },
-  authorInfo: {
-    marginLeft: 12,
-  },
-  authorName: {
-    fontSize: 16,
-    fontFamily: 'InterBold',
-  },
-  postDate: {
-    fontSize: 12,
-    fontFamily: 'Inter',
-  },
-  postContent: {
-    fontSize: 15,
-    fontFamily: 'Inter',
-    lineHeight: 22,
-    marginBottom: 16,
-  },
-  postFooter: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.05)',
-    paddingTop: 12,
-  },
-  footerAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 24,
-  },
-  footerActionText: {
-    fontSize: 14,
-    marginLeft: 6,
-  },
-  campaignTitle: {
-    fontSize: 18,
-    fontFamily: 'InterBold',
-  },
-  mosqueName: {
-    fontSize: 14,
-    fontFamily: 'InterBold',
-    marginTop: 2,
-  },
-  description: {
-    fontSize: 14,
-    fontFamily: 'Inter',
-    marginVertical: 12,
-    lineHeight: 20,
-  },
-  progressContainer: {
-    marginBottom: 20,
-  },
-  progressBar: {
-    height: 8,
-    borderRadius: 4,
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: 8,
-    borderRadius: 4,
-  },
-  progressStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  statsText: {
-    fontSize: 12,
-    fontFamily: 'InterBold',
-  },
-  donateButton: {
-    height: 44,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  donateButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontFamily: 'InterBold',
-  },
-  paymentInfo: {
-    marginTop: 16,
-    padding: 12,
-    borderRadius: 12,
-  },
-  paymentTitle: {
-    fontSize: 14,
-    fontFamily: 'InterBold',
-    marginBottom: 8,
-  },
-  paymentRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  paymentLabel: {
-    fontSize: 12,
-    fontFamily: 'Inter',
-  },
-  paymentValue: {
-    fontSize: 12,
-    fontFamily: 'InterBold',
-  },
-  paymentNote: {
-    fontSize: 11,
-    fontFamily: 'Inter',
-    fontStyle: 'italic',
-    marginTop: 8,
-  },
+  container: { flex: 1 },
+  header: { padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)' },
+  headerTitle: { fontSize: 18, fontFamily: 'InterBold' },
+  list: { padding: 16 },
+  card: { borderRadius: 16, padding: 16, marginBottom: 16, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
+  postHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  avatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { color: '#fff', fontSize: 18, fontFamily: 'InterBold' },
+  authorInfo: { marginLeft: 12 },
+  authorName: { fontSize: 16, fontFamily: 'InterBold' },
+  postDate: { fontSize: 12, fontFamily: 'Inter' },
+  postContent: { fontSize: 15, fontFamily: 'Inter', lineHeight: 22, marginBottom: 16 },
+  postFooter: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.05)', paddingTop: 12 },
+  footerAction: { flexDirection: 'row', alignItems: 'center', marginRight: 24 },
+  footerActionText: { fontSize: 14, marginLeft: 6 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalContent: { height: '70%', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  commentCard: { paddingVertical: 12, borderBottomWidth: 1 },
+  commentInputRow: { flexDirection: 'row', paddingTop: 16, borderTopWidth: 1, alignItems: 'center' },
+  input: { flex: 1, borderWidth: 1, borderRadius: 20, paddingHorizontal: 16, height: 40, marginRight: 8 },
+  sendBtn: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' }
 });
